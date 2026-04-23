@@ -1,0 +1,10 @@
+pyproject.toml
+ollmcp_gui_backend/__init__.py
+ollmcp_gui_backend/main.py
+ollmcp_gui_backend/protocol.py
+ollmcp_gui_backend.egg-info/PKG-INFO
+ollmcp_gui_backend.egg-info/SOURCES.txt
+ollmcp_gui_backend.egg-info/dependency_links.txt
+ollmcp_gui_backend.egg-info/entry_points.txt
+ollmcp_gui_backend.egg-info/requires.txt
+ollmcp_gui_backend.egg-info/top_level.txt

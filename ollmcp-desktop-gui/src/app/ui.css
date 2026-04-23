@@ -1,0 +1,572 @@
+.AppShell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 14px;
+  /* When using macOS overlay/transparent titlebars, keep content from sitting under it. */
+  --titlebar-pad: calc(env(safe-area-inset-top, 0px) + 18px);
+  padding-top: calc(14px + var(--titlebar-pad));
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.WindowDragBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Make the draggable area generous (covers the entire top strip like the screenshot). */
+  height: calc(env(safe-area-inset-top, 0px) + 56px);
+  z-index: 2;
+  -webkit-app-region: drag;
+  background: transparent;
+  /* Don't block UI clicks; headers handle dragging. */
+  pointer-events: none;
+}
+
+.Panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  align-self: stretch;
+  max-height: 100%;
+}
+
+.PanelHeader {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  -webkit-app-region: drag;
+}
+
+.PanelHeader button,
+.PanelHeader input,
+.PanelHeader textarea,
+.PanelHeader select,
+.PanelHeader a,
+.PanelHeader [role='button'] {
+  -webkit-app-region: no-drag;
+}
+
+.Title {
+  font-weight: 650;
+  color: var(--heading);
+  letter-spacing: 0.2px;
+}
+
+.Subtle {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.Tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+}
+
+.TabsLeft {
+  justify-content: flex-start;
+}
+
+/* Keep the title from pushing tabs offscreen. */
+.PanelHeader > :last-child {
+  margin-left: auto;
+  min-width: 140px;
+}
+
+.TabButton {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.TabButtonActive {
+  border-color: var(--accent-border-strong);
+  background: var(--accent-fill);
+}
+
+.PanelBody {
+  padding: 14px;
+  overflow: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.Row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.Field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.LabelRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.Label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.Input,
+.Textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.Textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.Button {
+  appearance: none;
+  background: var(--accent-fill-strong);
+  border: 1px solid var(--accent-border);
+  color: var(--heading);
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  position: relative;
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  transition:
+    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 180ms ease,
+    border-color 180ms ease,
+    filter 180ms ease;
+}
+
+.Button.ButtonSecondary {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.ActionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ActionGrid .Button {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.ActionGrid .Button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.Button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Polished micro-interactions (lift on hover, pressed inset on click). */
+.Button:not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.10) inset;
+}
+
+.Button:not(:disabled):active {
+  transform: translateY(0px);
+  filter: brightness(1.02);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 10px 18px rgba(0, 0, 0, 0.20) inset;
+}
+
+.TabButton {
+  transition:
+    transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 180ms ease,
+    border-color 180ms ease,
+    filter 180ms ease;
+}
+
+.TabButton:hover {
+  filter: brightness(1.05);
+}
+
+.TabButton:active {
+  transform: translateY(1px);
+}
+
+.Button:focus-visible,
+.TabButton:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.35);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .Button,
+  .TabButton {
+    transition: none;
+  }
+}
+
+.ButtonSecondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border);
+}
+
+.ButtonDanger {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.Highlight {
+  color: var(--pal-cyan);
+  font-weight: 650;
+}
+
+.HighlightPurple {
+  color: var(--pal-purple);
+  font-weight: 650;
+}
+
+.Chat {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  /* Keep the composer visible even in short windows. */
+  min-height: 260px;
+  flex: 1 1 auto;
+}
+
+.ChatHeader {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  -webkit-app-region: drag;
+}
+
+.ChatHeader button,
+.ChatHeader input,
+.ChatHeader textarea,
+.ChatHeader select,
+.ChatHeader a,
+.ChatHeader [role='button'] {
+  -webkit-app-region: no-drag;
+}
+
+.ChatHeaderRight {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.Pill {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.Messages {
+  padding: 14px 16px 8px;
+  overflow: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.Msg {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  max-width: 900px;
+}
+
+.MsgUser {
+  align-self: flex-end;
+  background: var(--purple-fill);
+  border-color: var(--purple-border);
+}
+
+.MsgAssistant {
+  align-self: flex-start;
+}
+
+.TypingBubble {
+  align-self: flex-start;
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  max-width: 900px;
+}
+
+.TypingDots {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 16px;
+}
+
+.TypingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  animation: typing-bounce 1.05s infinite ease-in-out;
+}
+
+.TypingDot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.TypingDot:nth-child(3) {
+  animation-delay: 0.30s;
+}
+
+@keyframes typing-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.55;
+  }
+  40% {
+    transform: translateY(-5px);
+    opacity: 0.95;
+  }
+}
+
+.MsgMeta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.MsgContent {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.MsgContent :where(p) {
+  margin: 0 0 10px;
+}
+
+.MsgContent :where(p:last-child) {
+  margin-bottom: 0;
+}
+
+.MsgContent :where(ul, ol) {
+  margin: 6px 0 10px 18px;
+  padding: 0;
+}
+
+.MsgContent :where(li) {
+  margin: 4px 0;
+}
+
+.MsgContent :where(a) {
+  color: var(--pal-cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.MsgContent :where(img) {
+  display: block;
+  max-width: min(420px, 100%);
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.MsgContent :where(code) {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.MsgContent :where(pre) {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.24);
+  overflow: auto;
+}
+
+.MsgContent :where(pre code) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12.5px;
+}
+
+.MsgContent :where(blockquote) {
+  margin: 8px 0 10px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent-border-strong);
+  background: var(--accent-fill);
+  border-radius: 10px;
+}
+
+.MsgContent :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 10px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.MsgContent :where(th, td) {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.MsgContent :where(th) {
+  color: var(--heading);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.Composer {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 74px;
+}
+
+.ComposerActivity {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+  min-height: 0;
+}
+
+.ComposerRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ComposerSend {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.SmallHint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ExampleUrlRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.ExampleUrlRow .Subtle {
+  margin-right: 4px;
+}
+
+/* On narrow windows, allow scrolling rather than clipping content. */
+@media (max-width: 520px) {
+  .AppShell {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .Tabs {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-height: 680px) {
+  .AppShell {
+    /* On short windows, allow scrolling rather than pushing panels out. */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .Chat {
+    min-height: 0;
+  }
+}
+

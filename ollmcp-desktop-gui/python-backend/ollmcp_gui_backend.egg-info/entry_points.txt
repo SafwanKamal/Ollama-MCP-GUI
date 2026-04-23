@@ -1,0 +1,2 @@
+[console_scripts]
+ollmcp-gui-backend = ollmcp_gui_backend.main:main

@@ -1,0 +1,3 @@
+mcp-client-for-ollama>=0.15.0
+mcp>=1.10.1
+httpx>=0.27.0
