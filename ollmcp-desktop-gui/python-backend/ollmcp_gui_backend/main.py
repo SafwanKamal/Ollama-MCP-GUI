@@ -132,6 +132,13 @@ class BackendApp:
         )
         t.start()
 
+    def handle_title(self, request_id: str, payload: Dict[str, Any]) -> None:
+        t = threading.Thread(
+            target=lambda: asyncio.run(self._handle_title_async(request_id, payload)),
+            daemon=True,
+        )
+        t.start()
+
     def handle_tool_approve(self, request_id: str, payload: Dict[str, Any]) -> None:
         approval_id = str(payload.get("approvalId", ""))
         decision = str(payload.get("decision", ""))
@@ -219,7 +226,7 @@ class BackendApp:
                             },
                         }
                     )
-                    selected_tools = _select_tools_for_query(ollama_tools, user_text, max_tools=40)
+                    selected_tools = _select_tools_for_query(ollama_tools, user_text, max_tools=60)
                     self.ch.emit(
                         {
                             "type": "status",
@@ -227,7 +234,7 @@ class BackendApp:
                             "requestId": request_id,
                             "payload": {
                                 "state": "ready",
-                                "message": f"Tool context: {len(selected_tools)}/{len(ollama_tools)} tools",
+                                "message": f"Tools sent to Ollama: {len(selected_tools)}/{len(ollama_tools)} available",
                             },
                         }
                     )
@@ -433,6 +440,8 @@ class BackendApp:
             self.handle_chat(request_id, payload)
         elif msg_type == "compress":
             self.handle_compress(request_id, payload)
+        elif msg_type == "title":
+            self.handle_title(request_id, payload)
         elif msg_type == "tool_approve":
             self.handle_tool_approve(request_id, payload)
         else:
@@ -521,6 +530,59 @@ class BackendApp:
                     "id": self._evt_id(),
                     "requestId": request_id,
                     "payload": {},
+                }
+            )
+
+    async def _handle_title_async(self, request_id: str, payload: Dict[str, Any]) -> None:
+        """
+        Generates a short, human-friendly title for a chat session.
+        """
+        model = str(payload.get("model", "qwen3.5:4b"))
+        ollama_host = str(payload.get("ollamaHost", "http://localhost:11434")).rstrip("/")
+        history = payload.get("history") or []
+
+        turns: List[str] = []
+        if isinstance(history, list):
+            for m in history[-30:]:
+                if not isinstance(m, dict):
+                    continue
+                role = str(m.get("role", "") or "")
+                content = m.get("content")
+                if role and isinstance(content, str) and content.strip():
+                    turns.append(f"{role.upper()}: {content.strip()}")
+
+        prompt = (
+            "Generate a concise title (max 6 words) for this chat session.\n"
+            "Rules:\n"
+            "- Output ONLY the title.\n"
+            "- No quotes.\n"
+            "- No emojis.\n\n"
+            "CHAT:\n"
+            + "\n".join(turns)
+        )
+
+        try:
+            title = await _ollama_summarize(ollama_host, model, prompt)
+            # sanitize to single line
+            title = " ".join((title or "").strip().split())[:80]
+            if not title:
+                title = "Untitled chat"
+            self.ch.emit(
+                {
+                    "type": "history_title",
+                    "id": self._evt_id(),
+                    "requestId": request_id,
+                    "payload": {"title": title},
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            # Non-fatal; frontend can keep fallback title.
+            self.ch.emit(
+                {
+                    "type": "history_title",
+                    "id": self._evt_id(),
+                    "requestId": request_id,
+                    "payload": {"title": "Untitled chat", "error": str(e)},
                 }
             )
 
@@ -639,7 +701,17 @@ async def _ollama_chat_stream(
     except httpx.TimeoutException as e:
         raise RuntimeError(f"Ollama request timed out ({url}).") from e
     except httpx.HTTPStatusError as e:
-        raise RuntimeError(f"Ollama returned HTTP {e.response.status_code} for {url}.") from e
+        code = int(getattr(e.response, "status_code", 0) or 0)
+        if code == 500:
+            raise RuntimeError(
+                "Ollama returned HTTP 500. This usually means the model/runtime crashed or ran out of resources.\n"
+                "Try:\n"
+                "- Restart Ollama\n"
+                "- Try a smaller model\n"
+                "- Disable tool-heavy requests (fewer tools / smaller context)\n"
+                f"- Verify the model exists: `{host}/api/tags`\n"
+            ) from e
+        raise RuntimeError(f"Ollama returned HTTP {code} for {url}.") from e
     except httpx.RemoteProtocolError as e:
         raise RuntimeError(
             "Ollama disconnected while processing the request. This often happens when the tool list is too large. "
@@ -729,6 +801,12 @@ def _select_tools_for_query(
     Zapier MCP can expose a huge tool set; sending all schemas to Ollama can overwhelm it.
     We do a simple lexical ranking to select a relevant subset.
     """
+    # If the tool set is small enough, just send them all.
+    # This keeps the UI "Tool context: X/Y" accurate as tools are added,
+    # while avoiding overwhelming Ollama on very large tool sets.
+    if len(tools) <= max_tools:
+        return tools
+
     q = (query or "").lower()
     tokens = [t for t in q.replace("/", " ").replace("_", " ").split() if len(t) >= 3]
 

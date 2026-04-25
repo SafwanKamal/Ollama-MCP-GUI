@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AppSettings, ChatMessage, ToolCallEvent } from './app/types'
-import { loadSession, loadSettings, saveSession, saveSettings } from './app/storage'
+import {
+  loadHistory,
+  loadSession,
+  loadSettings,
+  saveHistory,
+  saveSession,
+  saveSettings,
+  type ArchivedSession,
+} from './app/storage'
 import { buildMcpServerUrl, mcpBaseNeedsAppendedToken } from './app/mcpUrl'
 import { appendYouTubeThumbnailMarkdown } from './app/youtube'
 import { backendSend, backendStart, onBackendEvent } from './app/backend'
@@ -24,14 +32,27 @@ function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`
 }
 
-type AppTab = 'settings' | 'tools' | 'chat'
+function getSafeAppWindow() {
+  try {
+    return getCurrentWindow()
+  } catch {
+    return {
+      startDragging: async () => {},
+    }
+  }
+}
+
+type AppTab = 'settings' | 'tools' | 'chat' | 'history'
 export default function App() {
-  const appWindow = useMemo(() => getCurrentWindow(), [])
+  const appWindow = useMemo(() => getSafeAppWindow(), [])
   const [tab, setTab] = useState<AppTab>('settings')
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings())
   const [{ messages, toolEvents, memorySummary, memoryCutoffMs }, setSession] = useState(() =>
     loadSession(),
   )
+  const [history, setHistory] = useState<ArchivedSession[]>(() => loadHistory())
+  const pendingTitleReqIdRef = useRef<string | null>(null)
+  const pendingTitleHistIdRef = useRef<string | null>(null)
   const sessionRef = useRef<{
     messages: ChatMessage[]
     toolEvents: ToolCallEvent[]
@@ -81,6 +102,23 @@ export default function App() {
           // If we receive any non-error event, the backend/event pipe is alive.
           if (evt.type !== 'error' && backendStateRef.current !== 'exited') {
             setBackendState('ready')
+          }
+
+          if (
+            evt.type === 'history_title' &&
+            pendingTitleReqIdRef.current &&
+            evt.requestId === pendingTitleReqIdRef.current
+          ) {
+            const p = (evt.payload && typeof evt.payload === 'object' ? evt.payload : null) as
+              | Record<string, unknown>
+              | null
+            const title = String(p?.title ?? '').trim()
+            const histId = pendingTitleHistIdRef.current
+            if (histId && title) {
+              setHistory((xs) => xs.map((x) => (x.id === histId ? { ...x, title } : x)))
+            }
+            pendingTitleReqIdRef.current = null
+            pendingTitleHistIdRef.current = null
           }
 
           if (evt.type === 'status') {
@@ -222,11 +260,17 @@ export default function App() {
         // If invoke succeeded, consider backend alive (even if it hasn't emitted status yet).
         setBackendState('ready')
 
-        // If we never receive any backend event, surface a clear error instead of staying "starting".
+        // Only fail startup if the backend never acknowledged launch. Some healthy backend
+        // sessions stay quiet until the first chat request, so a lack of early events is not
+        // an error once `backend_start` has returned successfully.
         lastBackendEventAtMsRef.current = Date.now()
         const startupDeadline = Date.now() + 20000
         const startupTimer = window.setInterval(() => {
-          if (Date.now() >= startupDeadline && Date.now() - lastBackendEventAtMsRef.current >= 8000) {
+          if (
+            backendStateRef.current === 'starting' &&
+            Date.now() >= startupDeadline &&
+            Date.now() - lastBackendEventAtMsRef.current >= 8000
+          ) {
             window.clearInterval(startupTimer)
             pushBackendError('Backend did not emit any events after launch.')
             pushBackendError(
@@ -274,6 +318,10 @@ export default function App() {
   }, [messages, toolEvents, memorySummary, memoryCutoffMs])
 
   useEffect(() => {
+    saveHistory(history)
+  }, [history])
+
+  useEffect(() => {
     sessionRef.current = { messages, toolEvents, memorySummary, memoryCutoffMs }
   }, [messages, toolEvents, memorySummary, memoryCutoffMs])
 
@@ -283,26 +331,60 @@ export default function App() {
 
   // (Compact-mode / Chat-tab switching removed per request.)
 
-  const statusPills = useMemo(() => {
-    return [
-      <span key="model">
+  const statusLine = useMemo(() => {
+    const ollama = settings.ollamaHost.replace(/^https?:\/\//, '')
+    return (
+      <>
+        <span className="Highlight">Backend</span>: {backendState}
+        {'  '}·{'  '}
         <span className="Highlight">Model</span>: {settings.model}
-      </span>,
-      <span key="ollama">
-        <span className="Highlight">Ollama</span>:{' '}
-        {settings.ollamaHost.replace(/^https?:\/\//, '')}
-      </span>,
-      <span key="hil">
+        {'  '}·{'  '}
+        <span className="Highlight">Ollama</span>: {ollama}
+        {'  '}·{'  '}
         <span className="Highlight">HIL</span>: {settings.hilEnabled ? 'on' : 'off'}
-      </span>,
-      <span key="agent">
+        {'  '}·{'  '}
         <span className="Highlight">Agent</span>:{' '}
         {settings.agentMode ? `on (${settings.agentMaxSteps})` : 'off'}
-      </span>,
-    ]
-  }, [settings])
+      </>
+    )
+  }, [backendState, settings])
 
   function clearSession() {
+    const hasAny =
+      messages.length > 0 || toolEvents.length > 0 || Boolean(memorySummary) || memoryCutoffMs > 0
+    if (!hasAny) {
+      setSession({ messages: [], toolEvents: [], memorySummary: '', memoryCutoffMs: 0 })
+      return
+    }
+
+    const archivedId = uid('hist')
+    const archivedAtMs = now()
+    const snapshot = { messages, toolEvents, memorySummary, memoryCutoffMs }
+
+    setHistory((h) => [
+      {
+        id: archivedId,
+        archivedAtMs,
+        title: 'Untitled chat',
+        ...snapshot,
+      },
+      ...h,
+    ].slice(0, 50))
+
+    // Ask backend/Ollama for a short title (best-effort).
+    const reqId = uid('title')
+    pendingTitleReqIdRef.current = reqId
+    pendingTitleHistIdRef.current = archivedId
+    void backendSend({
+      type: 'title',
+      id: reqId,
+      payload: {
+        model: settings.model,
+        ollamaHost: settings.ollamaHost,
+        history: snapshot.messages.map((m) => ({ role: m.role, content: m.content })),
+      },
+    })
+
     setSession({ messages: [], toolEvents: [], memorySummary: '', memoryCutoffMs: 0 })
   }
 
@@ -440,7 +522,11 @@ export default function App() {
   }
 
   function exportSession() {
-    const data = JSON.stringify({ messages, toolEvents, settings, memorySummary, memoryCutoffMs }, null, 2)
+    const data = JSON.stringify(
+      { messages, toolEvents, settings, memorySummary, memoryCutoffMs, history },
+      null,
+      2,
+    )
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -464,6 +550,7 @@ export default function App() {
         toolEvents: unknown
         memorySummary: unknown
         memoryCutoffMs: unknown
+        history: unknown
       }>
       setSession({
         messages: Array.isArray(p.messages) ? (p.messages as ChatMessage[]) : [],
@@ -471,6 +558,9 @@ export default function App() {
         memorySummary: String(p.memorySummary ?? ''),
         memoryCutoffMs: Number(p.memoryCutoffMs ?? 0),
       })
+      if (Array.isArray(p.history)) {
+        setHistory(p.history as ArchivedSession[])
+      }
     }
   }
 
@@ -506,12 +596,20 @@ export default function App() {
               >
                 Chat
               </button>
+              <button
+                className={`TabButton ${tab === 'history' ? 'TabButtonActive' : ''}`}
+                onClick={() => setTab('history')}
+              >
+                History
+              </button>
             </div>
-            <div>
-              <div className="Title">
-                <span className="Highlight">Ollmcp</span> GUI
+            <div className="AppIdentity">
+              <div>
+                <div className="Title">
+                  <span className="Highlight">Ollmcp</span> GUI
+                </div>
+                <div className="Subtle">MCP streamable HTTP + local Ollama</div>
               </div>
-              <div className="Subtle">MCP (streamable HTTP) + local Ollama</div>
             </div>
           </div>
 
@@ -520,17 +618,10 @@ export default function App() {
               <div className="ChatHeader" data-tauri-drag-region>
                 <div>
                   <div className="Title">Chat</div>
-                  <div className="Subtle">Tool-aware chat (streaming soon)</div>
+                  <div className="Subtle">Tool-aware chat with approvals</div>
                 </div>
                 <div className="ChatHeaderRight">
-                  <div className="Pill">
-                    <span className="Highlight">Backend</span>: {backendState}
-                  </div>
-                  {statusPills.map((p, idx) => (
-                    <div className="Pill" key={idx}>
-                      {p}
-                    </div>
-                  ))}
+                  <div className="StatusLine">{statusLine}</div>
                 </div>
               </div>
 
@@ -596,15 +687,7 @@ export default function App() {
               </div>
 
               {pendingApprovals.length ? (
-                <div
-                  style={{
-                    margin: '0 14px 10px',
-                    padding: 12,
-                    borderRadius: 14,
-                    border: '1px solid var(--accent-border)',
-                    background: 'var(--accent-fill)',
-                  }}
-                >
+                <div className="ApprovalCard">
                   <div className="Row" style={{ justifyContent: 'space-between' }}>
                     <div style={{ fontWeight: 650, color: 'var(--heading)' }}>
                       Approval required ({pendingApprovals.length})
@@ -620,17 +703,7 @@ export default function App() {
                       </div>
                       <details style={{ marginTop: 8 }}>
                         <summary className="Subtle">arguments</summary>
-                        <pre
-                          style={{
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                            margin: '8px 0 0',
-                            padding: 10,
-                            borderRadius: 12,
-                            border: '1px solid var(--border)',
-                            background: 'rgba(0,0,0,0.18)',
-                          }}
-                        >
+                        <pre className="DetailsPre">
                           {JSON.stringify(t.argsJson, null, 2)}
                         </pre>
                       </details>
@@ -685,10 +758,91 @@ export default function App() {
                 </div>
               </div>
             </div>
+          ) : tab === 'history' ? (
+            <div className="PanelBody">
+              <div className="SectionHeader">
+                <div>
+                  <div className="Title">History</div>
+                  <div className="Subtle">Archived chats are saved locally.</div>
+                </div>
+                <div className="CountBadge">{history.length} saved</div>
+              </div>
+
+              {history.length === 0 ? (
+                <div className="EmptyState">
+                  <div className="EmptyStateTitle">No archived chats yet</div>
+                  <div className="Subtle">Use "Clear chat" to archive the current thread.</div>
+                </div>
+              ) : (
+                <div className="CardList">
+                  {history.map((h) => {
+                    const when = new Date(h.archivedAtMs).toLocaleString()
+                    const count = h.messages?.length ?? 0
+                    const preview = (h.messages?.find((m) => m.role === 'user')?.content ?? '').slice(
+                      0,
+                      140,
+                    )
+                    return (
+                      <div className="DataCard" key={h.id}>
+                        <div className="CardTopline">
+                          <div className="CardTitle">
+                            {h.title?.trim() ? h.title : 'Untitled chat'}
+                          </div>
+                          <div className="CountBadge">{count} msgs</div>
+                        </div>
+                        <div className="Subtle" style={{ marginTop: 2 }}>
+                          {when}
+                        </div>
+                        {preview ? (
+                          <div className="Subtle" style={{ marginTop: 4 }}>
+                            {preview}
+                            {preview.length >= 140 ? '…' : ''}
+                          </div>
+                        ) : null}
+                        <div className="CardActions">
+                          <button
+                            className="Button ButtonSecondary"
+                            onClick={() => {
+                              setSession({
+                                messages: h.messages ?? [],
+                                toolEvents: h.toolEvents ?? [],
+                                memorySummary: h.memorySummary ?? '',
+                                memoryCutoffMs: h.memoryCutoffMs ?? 0,
+                              })
+                              setTab('chat')
+                            }}
+                          >
+                            Restore
+                          </button>
+                          <button
+                            className="Button ButtonDanger"
+                            onClick={() => setHistory((xs) => xs.filter((x) => x.id !== h.id))}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="PanelBody">
               {tab === 'settings' ? (
             <>
+              <div className="SectionHeader">
+                <div>
+                  <div className="Title">Settings</div>
+                  <div className="Subtle">Connection, model, and session controls.</div>
+                </div>
+                <div className={`StateBadge StateBadge${backendState}`}>
+                  <span className="StateDot" />
+                  {backendState}
+                </div>
+              </div>
+
+              <div className="SettingsGrid">
               <div className="Field">
                 <div className="LabelRow">
                   <div className="Label">
@@ -841,45 +995,67 @@ export default function App() {
                   </button>
                 </div>
               </div>
+              </div>
 
-              <div className="Row" style={{ justifyContent: 'space-between' }}>
+              <div className="SettingsControls">
+              <div className="ToggleRow">
                 <label className="Row" style={{ gap: 8 }}>
                   <input
+                    className="Checkbox"
                     type="checkbox"
                     checked={settings.hilEnabled}
-                    onChange={(e) =>
-                      setSettings((s) => ({ ...s, hilEnabled: e.target.checked }))
-                    }
+                    onChange={(e) => setSettings((s) => ({ ...s, hilEnabled: e.target.checked }))}
                   />
                   <span className="Label">Human-in-the-loop approvals</span>
                 </label>
               </div>
 
-              <div className="Row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
+              <div className="ToggleRow">
                 <label className="Row" style={{ gap: 8 }}>
                   <input
+                    className="Checkbox"
                     type="checkbox"
                     checked={settings.agentMode}
-                    onChange={(e) =>
-                      setSettings((s) => ({ ...s, agentMode: e.target.checked }))
-                    }
+                    onChange={(e) => setSettings((s) => ({ ...s, agentMode: e.target.checked }))}
                   />
                   <span className="Label">Agent mode</span>
                 </label>
-                <input
-                  className="Input"
-                  style={{ width: 90, textAlign: 'right' }}
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={settings.agentMaxSteps}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      agentMaxSteps: Math.max(1, Math.min(50, Number(e.target.value || 8))),
-                    }))
-                  }
-                />
+                <div className="Stepper" aria-label="Agent steps">
+                  <button
+                    type="button"
+                    className="StepperButton"
+                    aria-label="Decrease steps"
+                    onClick={() =>
+                      setSettings((s) => ({
+                        ...s,
+                        agentMaxSteps: Math.max(1, Math.min(50, (s.agentMaxSteps ?? 8) - 1)),
+                      }))
+                    }
+                  >
+                    <span className="StepperIcon" aria-hidden="true">
+                      ‹
+                    </span>
+                  </button>
+                  <div className="StepperValue" aria-label="Steps value">
+                    {settings.agentMaxSteps}
+                  </div>
+                  <button
+                    type="button"
+                    className="StepperButton"
+                    aria-label="Increase steps"
+                    onClick={() =>
+                      setSettings((s) => ({
+                        ...s,
+                        agentMaxSteps: Math.max(1, Math.min(50, (s.agentMaxSteps ?? 8) + 1)),
+                      }))
+                    }
+                  >
+                    <span className="StepperIcon" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                </div>
+              </div>
               </div>
 
               <div className="ActionGrid">
@@ -920,55 +1096,39 @@ export default function App() {
             </>
           ) : (
             <>
-              <div className="Field">
-                <div className="LabelRow">
-                  <div className="Label">Tool activity</div>
+              <div className="SectionHeader">
+                <div>
+                  <div className="Title">Tool Activity</div>
                   <div className="Subtle">
                     pending {toolSummary.pending} · running {toolSummary.running} · done{' '}
                     {toolSummary.done} · error {toolSummary.err}
                   </div>
                 </div>
+                <div className="CountBadge">{toolEvents.length} total</div>
               </div>
 
               {toolEvents.length === 0 ? (
-                <div className="Subtle">No tool calls yet.</div>
+                <div className="EmptyState">
+                  <div className="EmptyStateTitle">No tool calls yet</div>
+                  <div className="Subtle">Tool calls will appear here as the assistant works.</div>
+                </div>
               ) : (
-                <div style={{ display: 'grid', gap: 10 }}>
+                <div className="CardList">
                   {toolEvents
                     .slice()
                     .reverse()
                     .map((t: ToolCallEvent) => (
-                      <div
-                        key={t.id}
-                        style={{
-                          padding: 10,
-                          border: '1px solid var(--border)',
-                          borderRadius: 12,
-                          background: 'rgba(255,255,255,0.04)',
-                        }}
-                      >
-                        <div className="Row" style={{ justifyContent: 'space-between' }}>
-                          <div style={{ fontWeight: 650, color: 'var(--heading)' }}>
-                            {t.toolName}
-                          </div>
-                          <div className="Subtle">{t.status}</div>
+                      <div className="DataCard" key={t.id}>
+                        <div className="CardTopline">
+                          <div className="CardTitle">{t.toolName}</div>
+                          <div className={`StatusBadge StatusBadge${t.status}`}>{t.status}</div>
                         </div>
                         <div className="Subtle" style={{ marginTop: 6 }}>
                           {t.server ? `server: ${t.server}` : 'server: (auto)'}
                         </div>
                         <details style={{ marginTop: 8 }}>
                           <summary className="Subtle">details</summary>
-                          <pre
-                            style={{
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              margin: '8px 0 0',
-                              padding: 10,
-                              borderRadius: 12,
-                              border: '1px solid var(--border)',
-                              background: 'rgba(0,0,0,0.15)',
-                            }}
-                          >
+                          <pre className="DetailsPre">
                             {JSON.stringify(
                               {
                                 args: t.argsJson,
@@ -981,7 +1141,7 @@ export default function App() {
                           </pre>
                         </details>
                         {t.status === 'pending' ? (
-                          <div className="Row" style={{ marginTop: 8 }}>
+                          <div className="CardActions">
                             <button
                               className="Button"
                               onClick={() => void respondToApproval(t.id, 'approve')}

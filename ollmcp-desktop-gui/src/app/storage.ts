@@ -1,13 +1,20 @@
 import type { AppSettings, ChatMessage, ToolCallEvent } from './types'
 
 const SETTINGS_KEY = 'ollmcp_gui_settings_v1'
-const SESSION_KEY = 'ollmcp_gui_session_v1'
+const SESSION_KEY = 'ollmcp_gui_session_v2'
+const HISTORY_KEY = 'ollmcp_gui_history_v1'
 
 export type PersistedSession = {
   messages: ChatMessage[]
   toolEvents: ToolCallEvent[]
   memorySummary: string
   memoryCutoffMs: number
+}
+
+export type ArchivedSession = PersistedSession & {
+  id: string
+  archivedAtMs: number
+  title?: string
 }
 
 export function loadSettings(): AppSettings {
@@ -77,5 +84,22 @@ export function loadSession(): PersistedSession {
 
 export function saveSession(session: PersistedSession) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+}
+
+export function loadHistory(): ArchivedSession[] {
+  const raw = localStorage.getItem(HISTORY_KEY)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(Boolean) as ArchivedSession[]
+  } catch {
+    localStorage.removeItem(HISTORY_KEY)
+    return []
+  }
+}
+
+export function saveHistory(history: ArchivedSession[]) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
 }
 

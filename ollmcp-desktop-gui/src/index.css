@@ -1,25 +1,31 @@
 :root {
-  /* https://safwankamal.github.io/Introduction-Website/style.css */
-  --pal-cyan: #0abdc6;
-  --pal-mint: #00ff9f;
-  --pal-purple: #711c91;
+  --pal-cyan: #2dd4bf;
+  --pal-mint: #8bffca;
+  --pal-purple: #b794f6;
+  --pal-amber: #f4bf75;
 
-  --bg0: #070510;
-  --bg1: #0f0818;
-  --panel: rgba(255, 255, 255, 0.06);
-  --panel2: rgba(255, 255, 255, 0.08);
-  --border: rgba(255, 255, 255, 0.10);
-  --text: rgba(255, 255, 255, 0.86);
-  --muted: rgba(255, 255, 255, 0.58);
-  --heading: rgba(255, 255, 255, 0.94);
+  --bg0: #090b12;
+  --bg1: #101621;
+  --bg2: #17202d;
+  --panel: rgba(16, 22, 32, 0.78);
+  --panel2: rgba(22, 31, 44, 0.82);
+  --surface: rgba(255, 255, 255, 0.055);
+  --surface-strong: rgba(255, 255, 255, 0.085);
+  --border: rgba(211, 226, 241, 0.13);
+  --border-strong: rgba(211, 226, 241, 0.22);
+  --text: rgba(231, 238, 246, 0.88);
+  --muted: rgba(179, 194, 211, 0.68);
+  --heading: rgba(249, 252, 255, 0.96);
   --accent: var(--pal-cyan);
 
-  --accent-fill: rgba(10, 189, 198, 0.12);
-  --accent-fill-strong: rgba(10, 189, 198, 0.18);
-  --accent-border: rgba(10, 189, 198, 0.45);
-  --accent-border-strong: rgba(10, 189, 198, 0.55);
-  --purple-fill: rgba(113, 28, 145, 0.14);
-  --purple-border: rgba(113, 28, 145, 0.38);
+  --accent-fill: rgba(45, 212, 191, 0.12);
+  --accent-fill-strong: rgba(45, 212, 191, 0.20);
+  --accent-border: rgba(45, 212, 191, 0.42);
+  --accent-border-strong: rgba(45, 212, 191, 0.62);
+  --purple-fill: rgba(183, 148, 246, 0.15);
+  --purple-fill-strong: rgba(183, 148, 246, 0.24);
+  --purple-border: rgba(183, 148, 246, 0.38);
+  --purple-border-strong: rgba(183, 148, 246, 0.55);
 
   --danger: #ef4444;
   --ok: var(--pal-mint);
@@ -29,7 +35,7 @@
 
   color-scheme: dark;
   font: 14px/150% var(--sans);
-  letter-spacing: 0.2px;
+  letter-spacing: 0;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -50,14 +56,12 @@ body,
 body {
   margin: 0;
   color: var(--text);
-  /* Allow Tauri window transparency; our gradient paints the actual background. */
   background-color: transparent;
   background:
-    radial-gradient(1200px 800px at 18% 18%, rgba(10, 189, 198, 0.20), transparent 58%),
-    radial-gradient(900px 620px at 82% 8%, rgba(0, 255, 159, 0.12), transparent 60%),
-    radial-gradient(780px 520px at 52% 92%, rgba(113, 28, 145, 0.22), transparent 55%),
-    linear-gradient(300deg, rgba(10, 189, 198, 0.08), rgba(0, 255, 159, 0.05), rgba(113, 28, 145, 0.10)),
-    linear-gradient(180deg, var(--bg0), var(--bg1));
+    linear-gradient(135deg, rgba(45, 212, 191, 0.13), transparent 34%),
+    linear-gradient(230deg, rgba(183, 148, 246, 0.18), transparent 38%),
+    linear-gradient(320deg, transparent 42%, rgba(183, 148, 246, 0.08) 72%, transparent),
+    linear-gradient(180deg, var(--bg0), var(--bg1) 46%, var(--bg2));
 }
 
 * {

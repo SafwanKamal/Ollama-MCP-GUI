@@ -4,12 +4,11 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 14px;
-  padding: 14px;
-  /* When using macOS overlay/transparent titlebars, keep content from sitting under it. */
+  gap: 16px;
+  padding: 16px;
   --titlebar-pad: calc(env(safe-area-inset-top, 0px) + 18px);
-  padding-top: calc(14px + var(--titlebar-pad));
-  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  padding-top: calc(16px + var(--titlebar-pad));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   min-height: 0;
   overflow: hidden;
@@ -20,20 +19,22 @@
   top: 0;
   left: 0;
   right: 0;
-  /* Make the draggable area generous (covers the entire top strip like the screenshot). */
-  height: calc(env(safe-area-inset-top, 0px) + 56px);
+  height: calc(env(safe-area-inset-top, 0px) + 28px);
   z-index: 2;
   -webkit-app-region: drag;
   background: transparent;
-  /* Don't block UI clicks; headers handle dragging. */
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .Panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  backdrop-filter: blur(18px) saturate(1.12);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(183, 148, 246, 0.05) inset,
+    0 1px 0 rgba(255, 255, 255, 0.08) inset;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -45,14 +46,15 @@
 }
 
 .PanelHeader {
-  padding: 14px 14px 10px;
+  padding: 12px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   -webkit-app-region: drag;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
 }
 
 .PanelHeader button,
@@ -67,27 +69,32 @@
 .Title {
   font-weight: 650;
   color: var(--heading);
-  letter-spacing: 0.2px;
+  letter-spacing: 0;
+  line-height: 1.2;
 }
 
 .Subtle {
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .Tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   align-items: center;
   min-width: 0;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .TabsLeft {
   justify-content: flex-start;
 }
 
-/* Keep the title from pushing tabs offscreen. */
 .PanelHeader > :last-child {
   margin-left: auto;
   min-width: 140px;
@@ -96,22 +103,29 @@
 .TabButton {
   appearance: none;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   color: var(--text);
-  padding: 6px 10px;
-  border-radius: 10px;
+  padding: 7px 11px;
+  border-radius: 11px;
   cursor: pointer;
   position: relative;
   box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  min-height: 32px;
 }
 
 .TabButtonActive {
-  border-color: var(--accent-border-strong);
-  background: var(--accent-fill);
+  border-color: color-mix(in srgb, var(--accent-border-strong) 72%, var(--purple-border-strong));
+  background:
+    linear-gradient(135deg, rgba(45, 212, 191, 0.20), rgba(183, 148, 246, 0.16)),
+    rgba(255, 255, 255, 0.04);
+  color: var(--heading);
+  box-shadow:
+    0 8px 22px rgba(45, 212, 191, 0.10),
+    0 8px 28px rgba(183, 148, 246, 0.10);
 }
 
 .PanelBody {
-  padding: 14px;
+  padding: 16px;
   overflow: auto;
   overflow-x: hidden;
   min-height: 0;
@@ -122,18 +136,20 @@
   display: flex;
   gap: 10px;
   align-items: center;
+  min-width: 0;
 }
 
 .Field {
   display: grid;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .LabelRow {
   display: flex;
   justify-content: space-between;
   gap: 10px;
+  align-items: flex-end;
 }
 
 .Label {
@@ -144,12 +160,226 @@
 .Input,
 .Textarea {
   width: 100%;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 12px;
   outline: none;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.Input:focus,
+.Textarea:focus {
+  background: var(--surface-strong);
+  border-color: color-mix(in srgb, var(--accent-border-strong) 70%, var(--purple-border-strong));
+  box-shadow:
+    0 0 0 3px rgba(45, 212, 191, 0.08),
+    0 0 0 5px rgba(183, 148, 246, 0.05);
+}
+
+.Checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, filter 180ms ease, transform 140ms ease;
+}
+
+.Checkbox:hover {
+  filter: brightness(1.05);
+}
+
+.Checkbox:active {
+  transform: translateY(1px);
+}
+
+.Checkbox:checked {
+  background: var(--accent-fill-strong);
+  border-color: var(--accent-border-strong);
+}
+
+.Checkbox:checked::after {
+  content: '';
+  width: 8px;
+  height: 5px;
+  border-left: 2px solid rgba(240, 246, 252, 0.92);
+  border-bottom: 2px solid rgba(240, 246, 252, 0.92);
+  transform: rotate(-45deg) translateY(-0.5px);
+}
+
+.Stepper {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.StepperButton {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--heading);
+  width: 34px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 160ms ease, filter 160ms ease, transform 140ms ease;
+}
+
+.StepperButton:hover {
+  background: rgba(255, 255, 255, 0.06);
+  filter: brightness(1.06);
+}
+
+.StepperButton:active {
+  transform: translateY(1px);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.StepperValue {
+  min-width: 44px;
+  padding: 0 10px;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid rgba(255, 255, 255, 0.10);
+  border-right: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.StepperIcon {
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.AppIdentity {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.SectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.SettingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.SettingsGrid .Field:nth-child(3),
+.SettingsGrid .Field:nth-child(4) {
+  grid-column: 1 / -1;
+}
+
+.SettingsControls {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.ToggleRow {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.CountBadge,
+.StateBadge,
+.StatusBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(135deg, rgba(183, 148, 246, 0.07), transparent),
+    rgba(255, 255, 255, 0.055);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.StateBadge {
+  color: var(--heading);
+}
+
+.StateDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--muted);
+  box-shadow: 0 0 0 3px rgba(179, 194, 211, 0.10);
+}
+
+.StateBadgeready .StateDot,
+.StatusBadgedone {
+  background: rgba(139, 255, 202, 0.13);
+  border-color: rgba(139, 255, 202, 0.32);
+  color: rgba(196, 255, 224, 0.92);
+}
+
+.StateBadgeready .StateDot {
+  background: var(--pal-mint);
+}
+
+.StateBadgeerror .StateDot,
+.StateBadgeexited .StateDot {
+  background: var(--danger);
+}
+
+.StateBadgestarting .StateDot,
+.StatusBadgerunning {
+  background: rgba(244, 191, 117, 0.14);
+  border-color: rgba(244, 191, 117, 0.34);
+  color: rgba(255, 222, 176, 0.92);
+}
+
+.StatusBadgepending,
+.StatusBadgeapproved {
+  background:
+    linear-gradient(135deg, var(--accent-fill), var(--purple-fill)),
+    rgba(255, 255, 255, 0.035);
+  border-color: color-mix(in srgb, var(--accent-border) 70%, var(--purple-border));
+  color: rgba(198, 253, 245, 0.92);
+}
+
+.StatusBadgeerror,
+.StatusBadgedenied {
+  background: rgba(239, 68, 68, 0.13);
+  border-color: rgba(239, 68, 68, 0.34);
+  color: rgba(255, 199, 199, 0.92);
 }
 
 .Textarea {
@@ -164,7 +394,7 @@
   color: var(--heading);
   min-height: 40px;
   padding: 9px 14px;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -183,7 +413,7 @@
 }
 
 .Button.ButtonSecondary {
-  color: rgba(255, 255, 255, 0.84);
+  color: var(--text);
 }
 
 .ActionGrid {
@@ -259,13 +489,14 @@
 }
 
 .ButtonSecondary {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface);
   border-color: var(--border);
 }
 
 .ButtonDanger {
   background: rgba(239, 68, 68, 0.14);
   border-color: rgba(239, 68, 68, 0.45);
+  color: rgba(255, 224, 224, 0.95);
 }
 
 .Highlight {
@@ -282,8 +513,6 @@
   height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  min-height: 0;
-  /* Keep the composer visible even in short windows. */
   min-height: 260px;
   flex: 1 1 auto;
 }
@@ -309,46 +538,57 @@
 
 .ChatHeaderRight {
   display: flex;
-  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
-.Pill {
+.StatusLine {
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+  line-height: 1.25;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(760px, 60vw);
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .Messages {
-  padding: 14px 16px 8px;
+  padding: 16px;
   overflow: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .Msg {
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface);
   max-width: 900px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
 }
 
 .MsgUser {
   align-self: flex-end;
-  background: var(--purple-fill);
+  background:
+    linear-gradient(145deg, rgba(183, 148, 246, 0.20), rgba(45, 212, 191, 0.08)),
+    var(--purple-fill);
   border-color: var(--purple-border);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.14),
+    0 10px 34px rgba(183, 148, 246, 0.08);
 }
 
 .MsgAssistant {
   align-self: flex-start;
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .TypingBubble {
@@ -358,9 +598,9 @@
   align-items: center;
   gap: 6px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface);
   max-width: 900px;
 }
 
@@ -403,7 +643,7 @@
 .MsgMeta {
   font-size: 11px;
   color: var(--muted);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -415,7 +655,7 @@
 }
 
 .MsgContent :where(p) {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
 
 .MsgContent :where(p:last-child) {
@@ -423,12 +663,12 @@
 }
 
 .MsgContent :where(ul, ol) {
-  margin: 6px 0 10px 18px;
+  margin: 6px 0 8px 18px;
   padding: 0;
 }
 
 .MsgContent :where(li) {
-  margin: 4px 0;
+  margin: 3px 0;
 }
 
 .MsgContent :where(a) {
@@ -501,11 +741,11 @@
 }
 
 .Composer {
-  padding: 12px 14px 14px;
+  padding: 12px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
   min-height: 74px;
 }
@@ -522,11 +762,106 @@
   grid-template-columns: 1fr auto;
   gap: 10px;
   align-items: center;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.ComposerRow .Input {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .ComposerSend {
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.ApprovalCard {
+  margin: 0 16px 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--accent-border);
+  background:
+    linear-gradient(180deg, rgba(45, 212, 191, 0.12), rgba(45, 212, 191, 0.06)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.CardList {
+  display: grid;
+  gap: 10px;
+}
+
+.DataCard {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+}
+
+.DataCard:hover {
+  border-color: color-mix(in srgb, var(--border-strong) 72%, var(--purple-border));
+  background:
+    linear-gradient(135deg, rgba(183, 148, 246, 0.055), transparent 44%),
+    var(--surface-strong);
+}
+
+.CardTopline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.CardTitle {
+  min-width: 0;
+  color: var(--heading);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.CardActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.CardActions .Button {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.DetailsPre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 8px 0 0;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.EmptyState {
+  min-height: 140px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.EmptyStateTitle {
+  color: var(--heading);
+  font-weight: 650;
 }
 
 .SmallHint {
@@ -546,21 +881,64 @@
   margin-right: 4px;
 }
 
-/* On narrow windows, allow scrolling rather than clipping content. */
 @media (max-width: 520px) {
   .AppShell {
     overflow: auto;
     -webkit-overflow-scrolling: touch;
+    padding: 10px;
+    padding-top: calc(10px + var(--titlebar-pad));
+  }
+
+  .Panel {
+    border-radius: 14px;
+  }
+
+  .PanelHeader,
+  .ChatHeader,
+  .SectionHeader,
+  .CardTopline,
+  .ToggleRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .PanelHeader > :last-child,
+  .AppIdentity {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .Tabs {
     flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .TabButton {
+    flex: 1 1 auto;
+  }
+
+  .SettingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .ComposerRow {
+    grid-template-columns: 1fr;
+  }
+
+  .StatusLine {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .ActionGrid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-height: 680px) {
   .AppShell {
-    /* On short windows, allow scrolling rather than pushing panels out. */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -569,4 +947,3 @@
     min-height: 0;
   }
 }
-
